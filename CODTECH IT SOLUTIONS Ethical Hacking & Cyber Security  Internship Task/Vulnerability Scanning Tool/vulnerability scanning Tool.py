@@ -1,0 +1,56 @@
+import nmap
+import socket
+import requests
+
+def scan_ports(target):
+    nm = nmap.PortScanner()
+    nm.scan(target, '1-1024')  # Scanning the first 1024 ports
+    for host in nm.all_hosts():
+        print(f"Host : {host} ({nm[host].hostname()})")
+        print(f"State : {nm[host].state()}")
+        for proto in nm[host].all_protocols():
+            print(f"Protocol : {proto}")
+            lport = nm[host][proto].keys()
+            for port in lport:
+                print(f"Port : {port}\tState : {nm[host][proto][port]['state']}")
+
+def check_software_version(target, port):
+    try:
+        s = socket.socket()
+        s.connect((target, port))
+        s.send(b'HEAD / HTTP/1.1\r\nHost: target\r\n\r\n')
+        banner = s.recv(1024)
+        print(f"Banner: {banner.decode()}")
+        s.close()
+    except Exception as e:
+        print(f"Error checking software version: {e}")
+
+def check_directory_listing(url):
+    try:
+        if not url.startswith('http://') and not url.startswith('https://'):
+            url = 'http://' + url
+        r = requests.get(url)
+        if "Index of" in r.text:
+            print("Directory listing is enabled!")
+        else:
+            print("Directory listing is not enabled.")
+    except Exception as e:
+        print(f"Error checking directory listing: {e}")
+
+def main():
+    target = input("Enter the target (domain/IP): ").strip()
+    
+    # Ensure target is correctly formatted for different checks
+    domain = target.replace("http://", "").replace("https://", "").replace("/", "")
+    
+    print("Scanning for open ports...")
+    scan_ports(domain)
+    
+    print("\nChecking for outdated software versions...")
+    check_software_version(domain, 80)
+    
+    print("\nChecking for misconfigurations...")
+    check_directory_listing(target)
+
+if __name__ == "__main__":
+    main()
